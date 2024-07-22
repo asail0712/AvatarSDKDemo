@@ -22,17 +22,14 @@
 - 透過Avatar SDK將照片轉成3D模型
 - 使用XPlan模組化，降低代碼相依性，提高功能覆用性
 
-# 5.貢獻指南
+# 5.其他
 ### 開發規範
 使用XPlan奠定了代碼的開發規範。
 
-# 6.許可證
-無
-
-# 7.聯繫方式和鳴謝
+# 6.聯繫方式和鳴謝
 Email: asail0712@gmail.com
 
-# 8. 附加資源
+# 7. 附加資源
 ### 感謝
 - [Avatar SDK](https://avatarsdk.com/)
 - [美图公司](https://ai.meitu.com/index)
