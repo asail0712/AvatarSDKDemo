@@ -141,7 +141,7 @@ GameObject:
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
-  m_IsActive: 1
+  m_IsActive: 0
 --- !u!114 &85296739
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -288,7 +288,7 @@ GameObject:
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
-  m_IsActive: 1
+  m_IsActive: 0
 --- !u!114 &295146831
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -1143,6 +1143,11 @@ PrefabInstance:
         type: 3}
       propertyPath: m_Name
       value: MultiMonitorSceneSystem
+      objectReference: {fileID: 0}
+    - target: {fileID: 3803272424278588676, guid: 274a78c4c5aaa574fb9debf8baf18d54,
+        type: 3}
+      propertyPath: m_IsActive
+      value: 0
       objectReference: {fileID: 0}
     m_RemovedComponents: []
   m_SourcePrefab: {fileID: 100100000, guid: 274a78c4c5aaa574fb9debf8baf18d54, type: 3}
