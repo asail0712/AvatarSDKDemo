@@ -12,15 +12,12 @@ namespace XPlan
 {
     public class SystemBase : MonoBehaviour
     {
-		[Header("偵錯")]
-		[SerializeField] private bool bEnableDebug = false;
-		
 		private LogicManager logicManager = null;
 
 		/**********************************************
 		* Handler管理
 		**********************************************/
-		protected void RegisterHandler(LogicComponentBase logicComp)
+		protected void RegisterLogic(LogicComponentBase logicComp)
 		{
 			// 確認msg群發的group
 			logicComp.LazyGroupID = () =>
@@ -30,7 +27,7 @@ namespace XPlan
 
 			logicManager.RegisterScope(logicComp, this);
 		}
-		protected void UnregisterHandler(LogicComponentBase logicComp)
+		protected void UnregisterLogic(LogicComponentBase logicComp)
 		{
 			logicManager.UnregisterScope(logicComp, this);
 		}
@@ -49,12 +46,6 @@ namespace XPlan
 		void Start()
         {
 			OnInitialGameObject();
-
-			if(bEnableDebug)
-			{
-				// Debug Manager有Initial的話，表示不是單一Scene獨立測試，就把該Debug物件關閉
-				gameObject.SetActive(!DebugManager.IsInitial());
-			}
 
 			OnInitialHandler();
 

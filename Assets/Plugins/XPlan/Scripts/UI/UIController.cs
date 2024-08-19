@@ -42,7 +42,6 @@ namespace XPlan.UI
 
 	public class UIController : CreateSingleton<UIController>
     {
-		[Header("Root列表")]
 		[SerializeField]
 		public List<GameObject> uiRootList;
 

@@ -2,8 +2,12 @@
 using System.IO;
 using System.Net.Mail;
 using System.Text.RegularExpressions;
-
 using UnityEngine;
+
+#if ZXing 
+using ZXing;
+using ZXing.Common;
+#endif // ZXing 
 
 namespace XPlan.Extensions
 {
@@ -40,7 +44,7 @@ namespace XPlan.Extensions
                 var mailAddress = new MailAddress(email);
                 return true;
             }
-            catch (FormatException)
+            catch (System.FormatException)
             {
                 return false;
             }

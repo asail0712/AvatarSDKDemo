@@ -18,7 +18,7 @@ namespace Granden.Demo
 
 		protected override void OnInitialHandler()
 		{
-			RegisterHandler(new TakePhotoHandler(headAnchor));
+			RegisterLogic(new TakePhotoHandler(headAnchor));
 		}
 	}
 }

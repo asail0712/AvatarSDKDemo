@@ -21,7 +21,7 @@ namespace Granden.MultiDisplay
 
 		protected override void OnInitialHandler()
 		{
-			RegisterHandler(new ModifyDisplayOrderHandler());
+			RegisterLogic(new ModifyDisplayOrderHandler());
 		}
 	}
 }

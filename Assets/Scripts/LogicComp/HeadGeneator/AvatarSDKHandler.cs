@@ -87,7 +87,7 @@ namespace Granden.AvatarSDK
                 Debug.Log("Avatar SDK 初始化成功");
             });
 #endif
-            RegisterNotify<GenerateHeadMsg>(this, (msg)=> 
+            RegisterNotify<GenerateHeadMsg>((msg)=> 
             {
                 if (!bIsInitial)
                 {

@@ -11,7 +11,7 @@ namespace XPlan.Observe
 {
 	public class MessageBase
 	{
-		public void Send(string groupID)
+		public void Send(string groupID = "")
 		{
 			MessageSender sender = new MessageSender(this);
 
@@ -107,7 +107,9 @@ namespace XPlan.Observe
 
 		public bool CheckCondition(Type type, string groupID)
 		{
-			bool bGroupMatch		= groupID == "" || groupID == this.LazyGroupID?.Invoke();
+			string lazyGroupID		= this.LazyGroupID?.Invoke();
+
+			bool bGroupMatch		= groupID == "" || groupID == lazyGroupID;
 			bool bTypeCorrespond	= actionInfoMap.ContainsKey(type);
 
 			return bGroupMatch && bTypeCorrespond;

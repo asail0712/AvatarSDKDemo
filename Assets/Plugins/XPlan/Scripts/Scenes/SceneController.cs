@@ -2,6 +2,7 @@
 using System.Collections;
 using System.Collections.Generic;
 using System.Globalization;
+using System.IO;
 using UnityEngine;
 using UnityEngine.SceneManagement;
 
@@ -10,6 +11,16 @@ using XPlan.Utility;
 
 namespace XPlan.Scenes
 {
+	[Serializable]
+	public class SceneData
+	{
+		[SerializeField]
+		public string sceneName;
+
+		[SerializeField]
+		public int sceneLevel;
+	}
+
 	public struct SceneInfo
 	{
 		public int sceneType;
@@ -62,6 +73,9 @@ namespace XPlan.Scenes
 
 	public class SceneController : CreateSingleton<SceneController>
 	{
+		[SerializeField] private List<SceneData> sceneDataList;
+		[SerializeField] private string startSceneName;
+
 		static private List<SceneInfo> sceneInfoList	= new List<SceneInfo>();
 		private List<int> currSceneStack				= new List<int>();
 
@@ -75,18 +89,61 @@ namespace XPlan.Scenes
 		* **********************************/
 		protected override void InitSingleton()
 		{
+			if(sceneDataList == null || sceneDataList.Count == 0)
+			{
+				return;
+			}
+
+			// 註冊Scene
+			sceneDataList.ForEach((E04) => 
+			{
+				RegisterScene(E04.sceneName, E04.sceneLevel);
+			});
+
+			// 設定開始Scene
+			StartScene(startSceneName);
 		}
 
 		protected override void OnRelease(bool bAppQuit)
 		{
+			if(sceneDataList == null)
+			{
+				return;
+			}
+
+			sceneDataList.Clear();
 		}
 
 		/************************************
 		 * 場景切換處理
 		 * **********************************/
-		public void StartScene(int sceneIdx)
+		public bool StartScene(int sceneIdx)
 		{
-			ChangeTo(sceneIdx);
+			return ChangeTo(sceneIdx);
+		}
+
+		public bool StartScene(string sceneName)
+		{
+			int buildIndex = GetBuildIndexByName(sceneName);
+
+			return ChangeTo(buildIndex);
+		}
+
+		public bool BackTo(string sceneName)
+		{
+			int idx = currSceneStack.FindIndex((sceneIdx) => 
+			{
+				return sceneIdx == GetBuildIndexByName(sceneName);
+			});
+
+			if (idx == -1)
+			{
+				return false;
+			}
+
+			ChangeTo(currSceneStack[idx]);
+
+			return true;
 		}
 
 		public bool BackFrom()
@@ -101,6 +158,13 @@ namespace XPlan.Scenes
 			return true;
 		}
 
+		public bool ChangeTo(string sceneName, bool bForceChange = false)
+		{
+			int buildIndex = GetBuildIndexByName(sceneName);
+
+			return ChangeTo(buildIndex, bForceChange);
+		}
+
 		public bool ChangeTo(int sceneType, bool bForceChange = false)
 		{
 			if (currSceneStack.Count == 0)
@@ -112,7 +176,6 @@ namespace XPlan.Scenes
 			for (int i = currSceneStack.Count - 1; i >= 0; --i)
 			{
 				int currSceneType	= currSceneStack[i];
-
 				int currScenelevel	= GetLevel(currSceneType);
 				int newScenelevel	= GetLevel(sceneType);
 
@@ -348,6 +411,13 @@ namespace XPlan.Scenes
 			}			
 		}
 
+		public void RegisterScene(string sceneName, int level)
+		{
+			int buildIndex = GetBuildIndexByName(sceneName);
+
+			RegisterScene(buildIndex, level);
+		}
+
 		public void  UnregisterScene(int sceneType)
 		{
 			sceneInfoList.RemoveAll((X) =>
@@ -431,6 +501,22 @@ namespace XPlan.Scenes
 				Debug.LogWarning("Level Error");
 				return -1;
 			}			
+		}
+
+		private int GetBuildIndexByName(string sceneName)
+		{
+			for (int i = 0; i < SceneManager.sceneCountInBuildSettings; i++)
+			{
+				string path = SceneUtility.GetScenePathByBuildIndex(i);
+				string name = Path.GetFileNameWithoutExtension(path);
+
+				if (name == sceneName)
+				{
+					return i;
+				}
+			}
+
+			return -1; // 返回 -1 表示未找到该场景
 		}
 	}
 }

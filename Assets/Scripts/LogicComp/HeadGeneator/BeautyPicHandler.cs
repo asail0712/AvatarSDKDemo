@@ -57,7 +57,7 @@ namespace Granden.AvatarSDK
                 Debug.LogWarning("未能成功取出 Meitu License。");
             }
 
-            RegisterNotify<PhotoImageMsg>(this, (msg) => 
+            RegisterNotify<PhotoImageMsg>((msg) => 
             {
                 if (bNeedToBeauty)
                 {

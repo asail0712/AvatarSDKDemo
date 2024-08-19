@@ -48,7 +48,7 @@ namespace Granden.AvatarSDK
             ServiceLocator.Register<IErrorNotify>(this);
             ServiceLocator.Register<IProgressNotify>(this);
 
-            RegisterNotify<ErrorNotifyMsg>(this, (msg)=> 
+            RegisterNotify<ErrorNotifyMsg>((msg)=> 
             {
                 switch (msg.errorLevel)
                 {
@@ -66,7 +66,7 @@ namespace Granden.AvatarSDK
                 }                
             });
 
-            RegisterNotify<ProgressNotifyMsg>(this, (msg) =>
+            RegisterNotify<ProgressNotifyMsg>((msg) =>
             {
                 progressAction?.Invoke(msg.currProgress);
             });

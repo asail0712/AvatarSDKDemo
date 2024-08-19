@@ -11,7 +11,6 @@ namespace XPlan.DebugMode
     {
         static private bool bIsInitial = false;
 
-        [Header("設定")]
         [SerializeField] 
         private GameObject debugConsole;        
         
@@ -26,7 +25,7 @@ namespace XPlan.DebugMode
             currGameSpeed   = 1;
             bIsInitial      = true;
 #if DEBUG
-            RegisterHandler(new DebugHandler(debugConsole));
+            RegisterLogic(new DebugHandler(debugConsole));
 #endif //DEBUG
         }
 #if DEBUG

@@ -160,10 +160,10 @@ namespace Granden.AvatarSDK
 				hairFacesCount		= hairFacesCount
 			});
 
-			RegisterHandler(new StatusNotifyHandler());			
-			RegisterHandler(new BeautyPicHandler(bNeedToBeauty));
-			RegisterHandler(new AvatarSDKHandler(null, avatarParam, avatarModification, avatarModification));
-			RegisterHandler(new HeadGeneratorHandler());
+			RegisterLogic(new StatusNotifyHandler());
+			RegisterLogic(new BeautyPicHandler(bNeedToBeauty));
+			RegisterLogic(new AvatarSDKHandler(null, avatarParam, avatarModification, avatarModification));
+			RegisterLogic(new HeadGeneratorHandler());
 		}
 	}
 }
