@@ -269,7 +269,6 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 4f96a98521ed30b459cbffef7ff4062b, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  bEnableDebug: 0
   headAnchor: {fileID: 326997298}
 --- !u!1 &295146830
 GameObject:
@@ -903,7 +902,7 @@ MonoBehaviour:
     sortIdx: 8
     bIsPersistentUI: 0
     bVisible: 1
-  bDontDestroyOtherUI: 0
+  bDestroyOtherUI: 0
 --- !u!1 &1466079183
 GameObject:
   m_ObjectHideFlags: 0

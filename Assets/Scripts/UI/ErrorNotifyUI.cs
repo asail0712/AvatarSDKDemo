@@ -16,8 +16,16 @@ namespace Granden.Demo
 
 		private void Awake()
 		{
+			errorTxt.text = "";
+
 			ListenCall<string>(UICommand.ShowError, (errorStr) => 
 			{
+				if(showErrorCoroutine != null)
+				{
+					StopCoroutine(showErrorCoroutine);
+					showErrorCoroutine = null;
+				}
+
 				showErrorCoroutine = StartCoroutine(ShowErrorInfo(errorStr));
 			});
 		}
@@ -28,7 +36,8 @@ namespace Granden.Demo
 
 			yield return new WaitForSeconds(5f);
 
-			errorTxt.text = "";
+			errorTxt.text		= "";
+			showErrorCoroutine	= null;
 		}
 	}
 }
