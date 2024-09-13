@@ -4,7 +4,6 @@ using System.Linq;
 using UnityEngine;
 using UnityEngine.SceneManagement;
 
-using XPlan.DebugMode;
 using XPlan.Extensions;
 using XPlan.Utility;
 
@@ -75,13 +74,21 @@ namespace XPlan.UI
 
 				if (uiPerfab == null)
 				{
-					Debug.LogError("Loading Info is null !");
+					LogSystem.Record("Loading Info is null !", LogType.Warning);
 
 					continue;
 				}
 
-				UIBase uiBase			= uiPerfab.GetComponent<UIBase>();
-				uiBase.bSpawnByLoader	= true;
+				UIBase uiBase = uiPerfab.GetComponent<UIBase>();
+
+				if (uiBase != null)
+				{
+					uiBase.bSpawnByLoader = true;
+				}
+				else 
+				{
+					LogSystem.Record("uiBase is null !", LogType.Warning);
+				}
 
 				int idx = currVisibleList.FindIndex((X) =>
 				{
@@ -101,7 +108,7 @@ namespace XPlan.UI
 					GameObject uiIns = GameObject.Instantiate(loadingInfo.uiPerfab, uiRootList[loadingInfo.rootIdx].transform);
 
 					// 加上文字
-					UIStringTable.Instance.InitialUIText(uiIns);
+					StringTable.Instance.InitialUIText(uiIns);
 
 					// 初始化所有的 ui base
 					UIBase[] newUIList = uiIns.GetComponents<UIBase>();

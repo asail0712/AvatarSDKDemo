@@ -11,11 +11,11 @@ namespace XPlan.Observe
 {
 	public class MessageBase
 	{
-		public void Send(string groupID = "")
+		public void Send(string zoneID = "")
 		{
 			MessageSender sender = new MessageSender(this);
 
-			sender.SendMessage(groupID);
+			sender.SendMessage(zoneID);
 		}
 	}
 
@@ -51,16 +51,19 @@ namespace XPlan.Observe
 			return msgSender.msg is T;
 		}
 
-		public T GetMessage<T>() where T : MessageBase
+		public T GetMessage<T>(bool bShowLog = false) where T : MessageBase
 		{
+			if(bShowLog)
+			{ 
 #if DEBUG
-			string className	= msgSender.stackInfo.GetClassName();
-			string methodName	= msgSender.stackInfo.GetMethodName();
-			string lineNumber	= msgSender.stackInfo.GetLineNumber();
-			string fullLogInfo	= $"Notify({msgSender.msg.GetType()}) from [ {className}::{methodName}() ], line {lineNumber} ";
+				string className	= msgSender.stackInfo.GetClassName();
+				string methodName	= msgSender.stackInfo.GetMethodName();
+				string lineNumber	= msgSender.stackInfo.GetLineNumber();
+				string fullLogInfo	= $"Notify({msgSender.msg.GetType()}) from [ {className}::{methodName}() ], line {lineNumber} ";
 
-			LogSystem.Record(fullLogInfo);
+				LogSystem.Record(fullLogInfo);
 #endif //DEBUG
+			}
 
 			return (T)(msgSender.msg);
 		}
@@ -81,9 +84,9 @@ namespace XPlan.Observe
 #endif //DEBUG
 		}
 
-		public void SendMessage(string groupID)
+		public void SendMessage(string zoneID)
 		{
-			NotifySystem.Instance.SendMsg(this, groupID);
+			NotifySystem.Instance.SendMsg(this, zoneID);
 		}
 
 		public Type GetMsgType()
@@ -96,23 +99,23 @@ namespace XPlan.Observe
 	{
 		public INotifyReceiver notifyReceiver;
 		public Dictionary<Type, ActionInfo> actionInfoMap;
-		public Func<string> LazyGroupID;
+		public Func<string> LazyZoneID;
 
 		public NotifyInfo(INotifyReceiver notifyReceiver)
 		{
 			this.notifyReceiver = notifyReceiver;
 			this.actionInfoMap	= new Dictionary<Type, ActionInfo>();
-			this.LazyGroupID	= () => notifyReceiver.LazyGroupID?.Invoke();
+			this.LazyZoneID	= () => notifyReceiver.GetLazyZoneID?.Invoke();
 		}
 
-		public bool CheckCondition(Type type, string groupID)
+		public bool CheckCondition(Type type, string zoneID)
 		{
-			string lazyGroupID		= this.LazyGroupID?.Invoke();
+			string lazyZoneID		= this.LazyZoneID?.Invoke();
 
-			bool bGroupMatch		= groupID == "" || groupID == lazyGroupID;
+			bool bZoneMatch		= zoneID == "" || zoneID == lazyZoneID;
 			bool bTypeCorrespond	= actionInfoMap.ContainsKey(type);
 
-			return bGroupMatch && bTypeCorrespond;
+			return bZoneMatch && bTypeCorrespond;
 		}
 	}
 
@@ -192,14 +195,14 @@ namespace XPlan.Observe
 			}			
 		}
 
-		public void SendMsg(MessageSender msgSender, string groupID)
+		public void SendMsg(MessageSender msgSender, string zoneID)
 		{
 			Type type					= msgSender.GetMsgType();
 			Queue<ActionInfo> infoQueue = new Queue<ActionInfo>();
 
 			foreach (NotifyInfo currInfo in notifyInfoList)
 			{
-				if(currInfo.CheckCondition(type, groupID))
+				if(currInfo.CheckCondition(type, zoneID))
 				{
 					ActionInfo actionInfo = currInfo.actionInfoMap[type];
 

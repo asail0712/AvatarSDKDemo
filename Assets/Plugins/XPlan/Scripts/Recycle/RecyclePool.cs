@@ -7,41 +7,16 @@ using XPlan.DebugMode;
 
 namespace XPlan.Recycle
 { 
-    public class PoolInfo<T> where T: IPoolable, new()
+    public static class RecyclePool<T> where T : IPoolable, new()
     {
-        private Queue<T> poolableQueue;
-        private PoolableComponent backupComp;
-        private int totalNum;
-             
-        public PoolInfo()
-		{
-            poolableQueue   = new Queue<T>();
-            backupComp      = null;
-            totalNum        = 0;
-        }
+        static private Queue<T> poolableQueue   = new Queue<T>();
+        static private int totalNum             = 0;
+        static private GameObject prefabInstance;
 
-        public void AddPoolable(List<T> poolList)
-		{
-            // 考慮到是monobehavior，生成方式會不一樣，所以要backup
-            if(poolList.Count > 0 && typeof(PoolableComponent).IsAssignableFrom(typeof(T)))
-			{
-                backupComp = poolList[0] as PoolableComponent;
-            }
-
-            for (int i = 0; i < poolList.Count; ++i)
-            {
-                poolableQueue.Enqueue(poolList[i]);
-            }
-
-            totalNum += poolList.Count;
-        }
-
-		public void ResetPool()
-		{
-			poolableQueue.Clear();
-		}
-
-		public T SpawnOne()
+        /**************************************************
+         * 生成流程
+         * ************************************************/
+        static public T SpawnOne()
 		{
             T poolable  = default(T);
             Type type   = typeof(T);
@@ -52,13 +27,13 @@ namespace XPlan.Recycle
             {
                 if (poolableQueue.Count == 0)
                 {
-                    if (backupComp.gameObject == null)
+                    if (prefabInstance == null)
                     {
                         LogSystem.Record($"backup 物件 為空，無法生成新GameObject !!", LogType.Error);
                     }
                     else
                     {
-                        GameObject go   = GameObject.Instantiate(backupComp.gameObject);
+                        GameObject go   = GameObject.Instantiate(prefabInstance);
                         poolable        = go.GetComponent<T>();
 
                         ++totalNum;
@@ -91,43 +66,6 @@ namespace XPlan.Recycle
             return poolable;
         }
 
-        public void Recycle(T poolable)
-		{
-            poolable.OnRecycle();
-            
-            poolableQueue.Enqueue(poolable);
-        }
-
-        public int PoolNum()
-        {
-            return poolableQueue.Count;
-        }
-
-        public int TotalNum()
-		{
-            return totalNum;
-        }
-    }
-
-    public static class RecyclePool<T> where T : IPoolable, new()
-    {
-        static private Dictionary<Type, PoolInfo<T>> poolInfoList = new Dictionary<Type, PoolInfo<T>>();
-
-        /**************************************************
-         * 生成流程
-         * ************************************************/
-        static public T SpawnOne()
-		{
-            Type type = typeof(T);
-
-            if (!poolInfoList.ContainsKey(type))
-            {
-                return default(T);
-            }
-
-            return poolInfoList[type].SpawnOne();
-        }
-
         static public List<T> SpawnList(int num)
         {
             List<T> result = new List<T>();
@@ -140,16 +78,11 @@ namespace XPlan.Recycle
             return result;
         }
 
-        static public void Recycle(T something)
+        static public void Recycle(T poolable)
 		{
-            Type type = typeof(T);
+            poolable.OnRecycle();
 
-            if (!poolInfoList.ContainsKey(type))
-            {
-                return;
-            }
-
-            poolInfoList[type].Recycle(something);
+            poolableQueue.Enqueue(poolable);
         }
 
         static public void RecycleList(List<T> goList)
@@ -164,81 +97,74 @@ namespace XPlan.Recycle
          * *************************************************/
         static public int GetTotalNum()
 		{
-            Type type = typeof(T);
-
-            if (poolInfoList.ContainsKey(type))
-            {
-                PoolInfo<T> poolInfo = poolInfoList[type];
-
-                return poolInfo.TotalNum();
-            }
-
-            return 0;
+            return totalNum;
         }
 
         static public int GetPoolNum()
         {
-            Type type = typeof(T);
-
-            if (poolInfoList.ContainsKey(type))
-            {
-                PoolInfo<T> poolInfo = poolInfoList[type];
-
-                return poolInfo.PoolNum();
-            }
-
-            return 0;
+            return poolableQueue.Count;
         }
 
         /**************************************************
          * 註冊流程        
          * *************************************************/
-
-        static public bool RegisterType(List<T> compList)
+        static public bool RegisterType(GameObject prefab, int num = 5)
         {
-            Type type               = typeof(T);
-            PoolInfo<T> poolInfo    = null;
-
-            if (poolInfoList.ContainsKey(type))
+            if (!typeof(PoolableComponent).IsAssignableFrom(typeof(T)))
             {
-                poolInfo = poolInfoList[type];              
-            }
-            else
-            {
-                poolInfo = new PoolInfo<T>();
-
-                poolInfoList.Add(type, poolInfo);
+                return false;
             }
 
-            poolInfo.AddPoolable(compList);
-            
+            PoolableComponent dummy = null;
+
+            if (!prefab.TryGetComponent<PoolableComponent>(out dummy))
+            {
+                return false;
+            }
+
+            // 考慮到是monobehavior，生成方式會不一樣
+            prefabInstance  = prefab;
+            totalNum        = num;
+
+            for (int i = 0; i < num; ++i)
+            {
+                GameObject go = GameObject.Instantiate(prefab);
+                T comp = go.GetComponent<T>();
+
+                go.SetActive(false);
+                poolableQueue.Enqueue(comp);
+            }
+
+            return true;
+        }
+
+        static public bool RegisterType(List<T> poolList)
+        {
+            for (int i = 0; i < poolList.Count; ++i)
+            {
+                poolableQueue.Enqueue(poolList[i]);
+            }
+
+            totalNum += poolList.Count;
+
             return true;
         }
 
         static public void UnregisterType()
         {
-            Type type = typeof(T);
-
-            if (!poolInfoList.ContainsKey(type))
+            while (poolableQueue.Count > 0)
             {
-                return;
+                T poolable = poolableQueue.Dequeue();
+
+                if(poolable is PoolableComponent)
+				{
+                    PoolableComponent poolableComp = poolable as PoolableComponent;
+
+                    poolableComp.ReleasePoolable();                    
+                }
             }
 
-            PoolInfo<T> poolInfo = poolInfoList[type];
-
-            // 清空的目的是
-            // 避免更換場景時，pool info裡面有被釋放的物件，導致null
-            poolInfo.ResetPool();
-        }
-
-        static public void UnregisterAll()
-        {
-            List<Type> keyList = new List<Type>(poolInfoList.Keys);
-
-            foreach (Type key in keyList)
-			{
-                UnregisterType();
-            }
+            poolableQueue.Clear();
         }
     }
 }

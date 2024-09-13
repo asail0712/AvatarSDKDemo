@@ -62,16 +62,18 @@ namespace Granden.Demo
                 yield break;
             }
 
-            WebCamTexture webCamTexture = WebCamUtility.FindWebCamTexture();
+			WebCamController webCamController = WebCamUtility.GenerateCamController(cameraImg, true);
+			webCamController.Play();
+			//WebCamTexture webCamTexture = WebCamUtility.FindWebCamTexture();
 
-            if (webCamTexture == null)
-            {
-                new ErrorNotifyMsg(ErrorDefine.EXTERNAL_CAMERA_REQUIRED);
+			//         if (webCamTexture == null)
+			//         {
+			//             new ErrorNotifyMsg(ErrorDefine.EXTERNAL_CAMERA_REQUIRED);
 
-                yield break;
-            }
+			//             yield break;
+			//         }
 
-			WebCamUtility.InitialCameraImg(cameraImg, webCamTexture);
+			//WebCamUtility.InitialCameraImg(cameraImg, webCamTexture);
 		}
 	}
 }
