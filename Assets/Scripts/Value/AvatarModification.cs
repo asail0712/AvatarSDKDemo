@@ -6,7 +6,7 @@ using ItSeez3D.AvatarSdk.Core;
 
 using XPlan.Interface;
 
-namespace Granden.AvatarSDK
+namespace XPlanUtility.AvatarSDK
 {
     // 參考資料
     // https://api.avatarsdk.com/?_gl=1*161w6jd*_ga*MTQ5NzM3NDM0Mi4xNzExMzQxMDA0*_ga_RK28V9S3X1*MTcxMzE0NzAwOS42LjEuMTcxMzE0NzAzNS4zNC4wLjA.&_ga=2.99690206.1343456017.1713147009-1497374342.1711341004#id3

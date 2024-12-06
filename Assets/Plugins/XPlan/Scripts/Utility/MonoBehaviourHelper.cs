@@ -1,6 +1,9 @@
 ﻿using System.Collections;
 using System;
 using UnityEngine;
+using UnityEngine.SceneManagement;
+
+using XPlan.Scenes;
 
 namespace XPlan.Utility
 {
@@ -9,7 +12,23 @@ namespace XPlan.Utility
         public static MonoBehavourInstance StartCoroutine(IEnumerator routine, bool persistent = false)
         {
             MonoBehavourInstance MonoHelper = new GameObject("Coroutine => " + routine.ToString()).AddComponent<MonoBehavourInstance>();
+            Scene targetScene;
 
+            if(SceneController.IsInstance())
+			{
+                targetScene = SceneController.Instance.gameObject.scene;
+            }
+            else
+			{
+                // 預設0是MainScene
+                targetScene = SceneManager.GetSceneByBuildIndex(0);
+            }
+
+            if(targetScene.isLoaded)
+			{
+                SceneManager.MoveGameObjectToScene(MonoHelper.gameObject, targetScene);
+            }
+            
             MonoHelper.DestroyWhenComplete(routine, persistent);
 
             return MonoHelper;
@@ -25,6 +44,23 @@ namespace XPlan.Utility
             string funcName                 = Func.Method.Name;
             IEnumerator routine             = Func?.Invoke();
             MonoBehavourInstance MonoHelper = new GameObject("Coroutine- " + funcName).AddComponent<MonoBehavourInstance>();
+
+            Scene targetScene;
+
+            if (SceneController.IsInstance())
+            {
+                targetScene = SceneController.Instance.gameObject.scene;
+            }
+            else
+            {
+                // 預設0是MainScene
+                targetScene = SceneManager.GetSceneByBuildIndex(0);
+            }
+
+            if (targetScene.isLoaded)
+            {
+                SceneManager.MoveGameObjectToScene(MonoHelper.gameObject, targetScene);
+            }
 
             MonoHelper.DestroyWhenComplete(routine, persistent);
 
@@ -71,6 +107,6 @@ namespace XPlan.Utility
 
                 Destroy(this.gameObject);
             }
-        }
+		}
     }
 }

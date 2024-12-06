@@ -3,7 +3,6 @@ using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 
-using XPlan.Extensions;
 using XPlan.Recycle;
 using XPlan.Utility;
 
@@ -38,19 +37,19 @@ namespace XPlan.Audio
 	public class SoundInfo
 	{
 		[SerializeField]
-		public string clipName		= "";
+		public string clipName			= "";
 
 		[SerializeField]
-		public AudioClip clip		= null;
+		public List<AudioClip> clipList	= null;
 
 		[SerializeField]
-		public float volume			= 1f;
+		public float volume				= 1f;
 
 		[SerializeField]
-		public bool bLoop			= true;
+		public bool bLoop				= true;
 
 		[SerializeField]
-		public AudioChannel channel = AudioChannel.Channel_1;
+		public AudioChannel channel		= AudioChannel.Channel_1;
 
 		public SoundInfo()
 		{
@@ -63,9 +62,8 @@ namespace XPlan.Audio
 	public class AudioSystem : CreateSingleton<AudioSystem>
 	{
 		[Tooltip("放置所有要撥放的聲音")]
-		[SerializeField] private List<SoundGroup> soundGroup;
+		[SerializeField] public List<SoundGroup> soundGroup;
 
-		
 		[Tooltip("背景音樂降低音量時的大小")]
 		[SerializeField] private float lowerBGVolume = 0.3f;
 
@@ -74,7 +72,6 @@ namespace XPlan.Audio
 
 		private Dictionary<AudioChannel, XAudioSource> sourceMap = new Dictionary<AudioChannel, XAudioSource>();
 		private List<SoundInfo> soundBank;
-		private float defaultBGVolume;
 
 		protected override void InitSingleton()
 		{
@@ -84,11 +81,7 @@ namespace XPlan.Audio
 			}
 
 			// 初始化soundBank
-			soundBank = new List<SoundInfo>();
-			foreach (SoundGroup group in soundGroup)
-			{
-				soundBank.AddRange(group.infoList);
-			}
+			RefreshBank();
 
 			// 記錄所有使用到的channel
 			List<AudioChannel> channelList = new List<AudioChannel>();
@@ -122,14 +115,6 @@ namespace XPlan.Audio
 			}
 
 			RecyclePool<XAudioSource>.RegisterType(audioList);
-
-			// 取出背景音樂的音量大小
-			XAudioSource bgAudioSource = GetBGAudioSource();
-
-			if(bgAudioSource != null)
-			{
-				defaultBGVolume = bgAudioSource.volume;
-			}
 		}
 
 		private void Update()
@@ -137,16 +122,21 @@ namespace XPlan.Audio
 			// 背景音樂播放時，有其他音效的話要降低背景音樂的聲音大小
 			if(IsPlayingSoundOnBGChannel())
 			{
-				XAudioSource bgAudioSource = GetBGAudioSource();
+				XAudioSource bgAudioSource	= GetBGAudioSource();
+				float defaultVolume			= bgAudioSource.soundInfo.volume;
+				float currVolume			= bgAudioSource.volume;
+				float targetVolume			= 0f;
 
 				if (GetNumOfPlayingSource() > 1)
 				{
-					bgAudioSource.volume = lowerBGVolume;
+					targetVolume = lowerBGVolume;
 				}
 				else
 				{
-					bgAudioSource.volume = defaultBGVolume;
+					targetVolume = defaultVolume;
 				}
+
+				bgAudioSource.volume = Mathf.Lerp(currVolume, targetVolume, Time.deltaTime);
 			}
 		}
 
@@ -154,62 +144,76 @@ namespace XPlan.Audio
 		 * Play Sound
 		 * 播放聲音可以透過clip name或是 clip index
 		 * **********************************/
-		public void PlayWithoutChannel(string clipName, Action<string> finishAction = null, float fadeInTime = 1f)
+		public void PlayWithoutChannel(string clipName, float fadeInTime = 1f, float delayTime = 0f, Action<string> finishAction = null)
 		{
-			int idx = soundBank.FindIndex((E04) =>
+			int clipIdx = soundBank.FindIndex((E04) =>
 			{
 				return E04.clipName == clipName;
 			});
 
-			XAudioSource audioSource	= RecyclePool<XAudioSource>.SpawnOne();
-			SoundInfo info				= GetSoundByIdx(idx);
+			SoundInfo info = GetSoundByIdx(clipIdx);
 
 			if (info == null)
 			{
 				return;
 			}
 
-			audioSource.clip	= info.clip;
-			float volume		= info.volume;
+			XAudioSource audioSource	= RecyclePool<XAudioSource>.SpawnOne();
+			audioSource.soundInfo		= info;
 
-			StartCoroutine(FadeInSound(audioSource, (clipName)=> 
+			StartCoroutine(DelayToPlay(clipIdx, audioSource, fadeInTime, delayTime, (clipName) =>
 			{
 				finishAction?.Invoke(clipName);
 				RecyclePool<XAudioSource>.Recycle(audioSource);
-
-			}, fadeInTime, volume));
+			}));
 		}
 
-		public void PlaySound(string clipName, Action<string> finishAction = null, float fadeInTime = 1f, float delayTime = 0f)
+		public void PlaySound(string clipName, float fadeInTime = 1f, float delayTime = 0f, Action<string> finishAction = null)
 		{
-			int idx = soundBank.FindIndex((E04) =>
+			int clipIdx = soundBank.FindIndex((E04) =>
 			{
 				return E04.clipName == clipName;
 			});
 
-			PlaySound(idx, finishAction, fadeInTime, delayTime);
+			PlaySound(clipIdx, fadeInTime, delayTime, finishAction);
 		}
 
-		public void PlaySound(int clipIdx, Action<string> finishAction, float fadeInTime = 1f, float delayTime = 0f)
+		public void PlaySound(int clipIdx, float fadeInTime = 1f, float delayTime = 0f, Action<string> finishAction = null)
 		{
-			StartCoroutine(DelayToPlay(clipIdx, finishAction, fadeInTime, delayTime));
-		}
+			XAudioSource audioSource = GetSourceByClipIndex(clipIdx);
 
-		private IEnumerator DelayToPlay(int clipIdx, Action<string> finishAction, float fadeInTime, float delayTime)
-		{
-			if (delayTime > 0)
+			if (audioSource == null)
 			{
-				yield return new WaitForSeconds(delayTime);
+				return;
 			}
-			
-			// 參數意義分別為 撥放的audio source 撥放的曲目 fadein時間 fadeout時間
-			yield return FadeInOutSound(clipIdx, finishAction, fadeInTime);
+
+			StartCoroutine(DelayToPlay(clipIdx, audioSource, fadeInTime, delayTime, finishAction));
+		}
+
+		private IEnumerator DelayToPlay(int clipIdx, XAudioSource audioSource, float fadeInTime, float delayTime, Action<string> finishAction)
+		{
+			yield return new WaitForSeconds(delayTime);
+
+			audioSource.soundInfo = GetSoundByIdx(clipIdx);
+			audioSource.Play(fadeInTime, finishAction);
 		}
 
 		/************************************
 		 * Stop Sound
 		 * 停止聲音可以透過clip name或是 clip index
 		 * **********************************/
+		public void StopSound(AudioChannel channel, float fadeOutTime = 1f)
+		{
+			XAudioSource audioSource = GetSourceByChannel(channel);
+
+			if (audioSource == null)
+			{
+				return;
+			}
+
+			audioSource.Stop(fadeOutTime);
+		}
+
 		public void StopSound(string clipName, float fadeOutTime = 1f)
 		{
 			int idx = soundBank.FindIndex((E04) =>
@@ -229,15 +233,7 @@ namespace XPlan.Audio
 				return;
 			}
 
-			if (fadeOutTime > 0f && audioSource.IsPlaying())
-			{
-				StartCoroutine(FadeOutSound(audioSource, fadeOutTime));
-			}
-			else
-			{
-				// 如果不需要淡出，则直接停止播放
-				audioSource.Stop();
-			}
+			audioSource.Stop(fadeOutTime);
 		}
 
 		/************************************
@@ -286,12 +282,28 @@ namespace XPlan.Audio
 				return;
 			}
 
-			audioSource.UnPause();
+			audioSource.Resume();
 		}
 
 		/************************************
 		 * is playing
 		 * **********************************/
+		public bool IsPlaying(AudioChannel channel)
+		{
+			foreach(SoundInfo soundInfo in soundBank)
+			{
+				if(soundInfo.channel == channel)
+				{
+					if(IsPlaying(soundInfo.clipName))
+					{
+						return true;
+					}
+				}
+			}
+
+			return false;
+		}
+
 		public bool IsPlaying(string clipName)
 		{
 			int idx = soundBank.FindIndex((E04) =>
@@ -319,7 +331,7 @@ namespace XPlan.Audio
 				return false;
 			}
 
-			if (audioSource.clip != info.clip)
+			if (audioSource.soundInfo != info)
 			{
 				// 當前 clip不為指定的 clip
 				return false;
@@ -375,20 +387,6 @@ namespace XPlan.Audio
 			return info;
 		}
 
-		private bool IsLoopByIdx(int clipIdx)
-		{
-			if (!soundBank.IsValidIndex<SoundInfo>(clipIdx))
-			{
-				Debug.LogError($"soundBank沒有這個Idx {clipIdx}");
-
-				return false;
-			}
-
-			bool bLoop = soundBank[clipIdx].bLoop;
-
-			return bLoop;
-		}
-
 		public AudioChannel GetChannelByClipName(string clipName)
 		{
 			int clipIdx = soundBank.FindIndex((E04) =>
@@ -408,101 +406,13 @@ namespace XPlan.Audio
 			return channel;
 		}
 
-		/************************************
-		* 實際播放聲音的流程
-		* **********************************/
-		private IEnumerator FadeInOutSound(int clipIdx = -1, Action<string> finishAction = null, float fadeInTime = 1f)
+		public void RefreshBank()
 		{
-			// 在同一個Channel做 Fade in / out的處理
-
-			XAudioSource audioSource = GetSourceByClipIndex(clipIdx);
-
-			if(audioSource == null)
+			soundBank = new List<SoundInfo>();
+			foreach (SoundGroup group in soundGroup)
 			{
-				yield break;
+				soundBank.AddRange(group.infoList);
 			}
-
-			// 設定source是否為Loop
-			audioSource.loop = IsLoopByIdx(clipIdx);
-
-			// 使用這次撥放聲音的Fade In時間除以2 當作前一個聲音的Fade Out時間			
-			yield return FadeOutSound(audioSource, fadeInTime / 2f);
-
-			// 检查是否指定了新的音频剪辑
-			if (clipIdx == -1)
-			{
-				yield break;
-			}
-
-			SoundInfo info = GetSoundByIdx(clipIdx);
-
-			if (info == null)
-			{
-				yield break;
-			}
-
-			// 更換撥放音樂
-			audioSource.clip	= info.clip;
-			float volume		= info.volume;
-
-			// fade in
-			yield return FadeInSound(audioSource, finishAction, fadeInTime / 2f, volume);
-		}
-
-		private IEnumerator FadeOutSound(XAudioSource audioSource, float fadeOutTime)
-		{
-			if(!audioSource.IsPlaying())
-			{
-				yield break;
-			}
-
-			if (fadeOutTime == 0f)
-			{
-				audioSource.Stop();
-				yield break;
-			}
-
-			float startVolume	= audioSource.volume;
-			float startTime		= Time.time;
-
-			while (Time.time < startTime + fadeOutTime)
-			{
-				audioSource.volume = Mathf.Lerp(startVolume, 0f, (Time.time - startTime) / fadeOutTime);
-				yield return null;
-			}
-
-			audioSource.volume = 0f;
-			audioSource.Stop();
-		}
-
-		private IEnumerator FadeInSound(XAudioSource audioSource, Action<string> finishAction, float fadeInTime, float volume)
-		{
-			if (fadeInTime == 0f)
-			{
-				// 如果不需要淡入，则直接播放
-				audioSource.Play(() =>
-				{
-					finishAction?.Invoke(audioSource.clip.name);
-				});
-				yield break;
-			}
-
-			audioSource.volume = 0f;
-			audioSource.Play(() =>
-			{
-				finishAction?.Invoke(audioSource.clip.name);
-			});
-
-			float targetVolume	= volume;
-			float startTime		= Time.time;
-
-			while (Time.time < startTime + fadeInTime)
-			{
-				audioSource.volume = Mathf.Lerp(0f, targetVolume, (Time.time - startTime) / fadeInTime);
-				yield return null;
-			}
-
-			audioSource.volume = targetVolume;
 		}
 
 		/************************************

@@ -5,7 +5,6 @@ using UnityEngine;
 
 using XPlan.DebugMode;
 using XPlan.Utility;
-using XPlan.Extensions;
 
 namespace XPlan.Observe
 {

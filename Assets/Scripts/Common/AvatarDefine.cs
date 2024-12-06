@@ -2,18 +2,14 @@
 using System.Collections.Generic;
 using UnityEngine;
 
-namespace Granden.AvatarSDK
+namespace XPlanUtility.AvatarSDK
 {
 	/**************************
 	 * 常數
 	 * ************************/
 	public static class AvatarDefine
 	{
-#if DEBUG
-		public const string BaseUrl = "https://greatwig-backend-api-greatwig-backend-api-staging.azurewebsites.net";
-#else
-		public const string BaseUrl = "https://greatwig-backend-api.azurewebsites.net";		
-#endif
+		public const string BaseUrl = "";
 	}
 
 	public static class ErrorDefine

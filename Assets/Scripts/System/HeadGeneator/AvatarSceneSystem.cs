@@ -7,7 +7,7 @@ using ItSeez3D.AvatarSdk.Core;
 
 using XPlan;
 
-namespace Granden.AvatarSDK
+namespace XPlanUtility.AvatarSDK
 {
 	public class AvatarSceneSystem : SystemBase
     {
@@ -104,7 +104,7 @@ namespace Granden.AvatarSDK
 
 		}
 
-		protected override void OnInitialHandler()
+		protected override void OnInitialLogic()
 		{
 			AvatarParam avatarParam = new AvatarParam()
 			{ 

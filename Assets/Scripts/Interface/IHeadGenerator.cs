@@ -4,7 +4,7 @@ using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.UI;
 
-namespace Granden.AvatarSDK
+namespace XPlanUtility.AvatarSDK
 {
     public interface IHeadGenerator
     {

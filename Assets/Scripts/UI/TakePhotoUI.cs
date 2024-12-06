@@ -8,9 +8,7 @@ using UnityEngine.UI;
 using XPlan.UI;
 using XPlan.Utility;
 
-using Granden.AvatarSDK;
-
-namespace Granden.Demo
+namespace XPlanUtility.AvatarSDK
 {
 	public class TakePhotoUI : UIBase
 	{

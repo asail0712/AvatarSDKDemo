@@ -5,15 +5,15 @@ using System.Net.Mail;
 using System.Text.RegularExpressions;
 using UnityEngine;
 
-#if ZXing 
+#if ZXING 
 using ZXing;
 using ZXing.Common;
-#endif // ZXing 
+#endif // ZXING 
 
 namespace XPlan.Utility
 {
 
-#if ZXing
+#if ZXING
     public static class QRCodeUtility
     {
 
@@ -33,7 +33,7 @@ namespace XPlan.Utility
             Color32[] color32 = barcodeWriter.Write(content);
 
             // 創建一個 Unity Texture2D 並設定像素
-            Texture2D texture = new Texture2D(size, size);
+            Texture2D texture = new Texture2D(size, size, TextureFormat.RGB24, false);
             texture.SetPixels32(color32);
             texture.Apply();
 
@@ -64,22 +64,24 @@ namespace XPlan.Utility
             }
         }
 
-        public static void DecodeQRCodeFromCamera(WebCamTexture webCamTexture, Action<string> finishAction)
+        public static QRCodeReader DecodeQRCodeFromCamera(WebCamTexture webCamTexture, Action<string> finishAction)
         {
             // 确保有一个 MonoBehaviour 来启动协程
             QRCodeReader reader = new GameObject("QRCodeReader").AddComponent<QRCodeReader>();
             reader.StartCoroutine(reader.ReadQRCodeCoroutine(webCamTexture, finishAction));
+
+            return reader;
         }
 
     }
 
-    class QRCodeReader : MonoBehaviour
+    public class QRCodeReader : MonoBehaviour
     {
         private IBarcodeReader barcodeReader;
 
         void Start()
         {
-            // 初始化 ZXing barcode reader
+            // 初始化 ZXING barcode reader
             barcodeReader = new BarcodeReader
             {
                 AutoRotate  = true,
@@ -130,6 +132,6 @@ namespace XPlan.Utility
         }
     }
 
-#endif // ZXing 
+#endif // ZXING 
 }
 

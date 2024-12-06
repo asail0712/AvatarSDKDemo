@@ -2,7 +2,7 @@
 using System.Collections.Generic;
 using UnityEngine;
 
-namespace Granden.Demo
+namespace XPlanUtility.AvatarSDK
 {
 	/**************************
 	 * 常數

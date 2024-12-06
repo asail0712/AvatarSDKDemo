@@ -8,9 +8,9 @@ using XPlan;
 using XPlan.Observe;
 using XPlan.Utility;
 
-namespace Granden.AvatarSDK
+namespace XPlanUtility.AvatarSDK
 {
-	public class HeadGeneratorHandler : LogicComponentBase, IHeadGenerator
+	public class HeadGeneratorHandler : LogicComponent, IHeadGenerator
     {        
         public HeadGeneratorHandler()
         {

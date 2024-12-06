@@ -3,8 +3,6 @@ using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 
-using XPlan.DebugMode;
-
 // MonoBehaviour 函數的執行先後順序
 // https://home.gamer.com.tw/creationDetail.php?sn=2491667
 
@@ -17,7 +15,7 @@ namespace XPlan
 		/**********************************************
 		* Handler管理
 		**********************************************/
-		protected void RegisterLogic(LogicComponentBase logicComp)
+		protected void RegisterLogic(LogicComponent logicComp)
 		{
 			// 確認msg群發的group
 			logicComp.GetLazyZoneID = () =>
@@ -25,11 +23,11 @@ namespace XPlan
 				return GetType().ToString();
 			};
 
-			logicManager.RegisterScope(logicComp, this);
+			logicManager.RegisterScope(logicComp);
 		}
-		protected void UnregisterLogic(LogicComponentBase logicComp)
+		protected void UnregisterLogic(LogicComponent logicComp)
 		{
-			logicManager.UnregisterScope(logicComp, this);
+			logicManager.UnregisterScope(logicComp);
 		}
 
 		/**********************************************
@@ -47,7 +45,7 @@ namespace XPlan
         {
 			OnInitialGameObject();
 
-			OnInitialHandler();
+			OnInitialLogic();
 
 			StartCoroutine(PostInitial());
 		}
@@ -70,7 +68,7 @@ namespace XPlan
 		{
 			// for override
 		}
-		protected virtual void OnInitialHandler()
+		protected virtual void OnInitialLogic()
 		{
 			// for override
 		}
@@ -85,11 +83,11 @@ namespace XPlan
 		**********************************************/
 		private bool bAppQuit;
 
-		void OnDestroy()
+		private void OnDestroy()
 		{
 			if(logicManager != null)
 			{
-				logicManager.UnregisterScope(this, bAppQuit);
+				logicManager.UnregisterScope(bAppQuit);
 			}
 			
 			OnRelease(bAppQuit);

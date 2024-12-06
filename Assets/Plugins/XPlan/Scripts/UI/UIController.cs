@@ -1,10 +1,9 @@
 ﻿using System;
+using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
 using UnityEngine;
-using UnityEngine.SceneManagement;
 
-using XPlan.Extensions;
 using XPlan.Utility;
 
 namespace XPlan.UI
@@ -28,14 +27,16 @@ namespace XPlan.UI
 	class UIVisibleInfo
 	{
 		public GameObject uiIns;
+		public int rootIdx;
 		public int referCount;
 		public string uiName;
 
-		public UIVisibleInfo(GameObject u, string s, int r)
+		public UIVisibleInfo(GameObject u, string s, int r, int i)
 		{
 			uiIns			= u;
 			uiName			= s;
 			referCount		= r;
+			rootIdx			= i;
 		}
 	}
 
@@ -44,13 +45,17 @@ namespace XPlan.UI
 		[SerializeField]
 		public List<GameObject> uiRootList;
 
-		List<UIVisibleInfo> currVisibleList		= new List<UIVisibleInfo>();
-		List<UIVisibleInfo> persistentUIList	= new List<UIVisibleInfo>();
-		List<UILoader> loaderStack				= new List<UILoader>();
+		[SerializeField]
+		public TextAsset[] csvAssetList;
+
+		private List<UIVisibleInfo> currVisibleList		= new List<UIVisibleInfo>();
+		private List<UIVisibleInfo> persistentUIList	= new List<UIVisibleInfo>();
+		private List<UILoader> loaderStack				= new List<UILoader>();
+		private StringTable stringTable					= new StringTable();
 
 		protected override void InitSingleton()
 		{
-	
+			stringTable.InitialStringTable(csvAssetList);
 		}
 
 		/**************************************
@@ -64,62 +69,67 @@ namespace XPlan.UI
 			List<UILoadingInfo> loadingList		= loader.GetLoadingList();
 			bool bNeedToDestroyOtherUI			= loader.NeedToDestroyOtherUI();
 
-			Scene currScene						= loader.gameObject.scene;
-			int buildIdx						= currScene.buildIndex;
-
 			// 添加新UI的處理
 			foreach (UILoadingInfo loadingInfo in loadingList)
 			{
+				/********************************
+				 * 確認 perfab
+				 * *****************************/
 				GameObject uiPerfab = loadingInfo.uiPerfab;
 
 				if (uiPerfab == null)
 				{
-					LogSystem.Record("Loading Info is null !", LogType.Warning);
+					LogSystem.Record("Loading Info is null !", LogType.Error);
 
 					continue;
 				}
 
-				UIBase uiBase = uiPerfab.GetComponent<UIBase>();
-
-				if (uiBase != null)
+				/********************************
+				 * 判斷該UI是否已經在畫面上
+				 * *****************************/
+				GameObject uiIns	= null;
+				int idx				= currVisibleList.FindIndex((X) =>
 				{
-					uiBase.bSpawnByLoader = true;
-				}
-				else 
-				{
-					LogSystem.Record("uiBase is null !", LogType.Warning);
-				}
-
-				int idx = currVisibleList.FindIndex((X) =>
-				{
-					return X.uiName == uiPerfab.name;
+					return X.uiName == uiPerfab.name && X.rootIdx == loadingInfo.rootIdx;
 				});
 
 				if (idx == -1)
 				{
 					// 確認加載 UI Root
-					if(!uiRootList.IsValidIndex<GameObject>(loadingInfo.rootIdx))
+					if(!uiRootList.IsValidIndex<GameObject>(loadingInfo.rootIdx)
+						|| uiRootList[loadingInfo.rootIdx] == null)
 					{
-						LogSystem.Record($"{loadingInfo.rootIdx} 是無效的rootIdx", LogType.Error);
-						return;
+						LogSystem.Record($"{loadingInfo.rootIdx} 是無效的rootIdx", LogType.Warning);
+						continue;
 					}
 
 					// 生成UI
-					GameObject uiIns = GameObject.Instantiate(loadingInfo.uiPerfab, uiRootList[loadingInfo.rootIdx].transform);
+					uiIns = GameObject.Instantiate(loadingInfo.uiPerfab, uiRootList[loadingInfo.rootIdx].transform);
+
+					// 強制enable 去觸發 Awake，來註冊Command
+					uiIns.SetActive(true);
+					uiIns.transform.localScale = Vector3.zero;
 
 					// 加上文字
-					StringTable.Instance.InitialUIText(uiIns);
+					stringTable.InitialUIText(uiIns);
 
 					// 初始化所有的 ui base
 					UIBase[] newUIList = uiIns.GetComponents<UIBase>();
 
+					if (newUIList == null || newUIList.Length == 9)
+					{
+						LogSystem.Record("uiBase is null !", LogType.Error);
+
+						continue;
+					}
+
 					foreach (UIBase newUI in newUIList)
 					{
-						newUI.InitialUI(loadingInfo.sortIdx, buildIdx);
+						newUI.InitialUI(loadingInfo.sortIdx);
 					}
 
 					// 確認是否為常駐UI
-					UIVisibleInfo vInfo = new UIVisibleInfo(uiIns, uiPerfab.name, 1);
+					UIVisibleInfo vInfo = new UIVisibleInfo(uiIns, uiPerfab.name, 1, loadingInfo.rootIdx);
 					if (loadingInfo.bIsPersistentUI)
 					{
 						persistentUIList.Add(vInfo);
@@ -133,17 +143,22 @@ namespace XPlan.UI
 				{
 					UIVisibleInfo vInfo = currVisibleList[idx];
 					++vInfo.referCount;
-
-					UIBase[] newUIList = vInfo.uiIns.GetComponents<UIBase>();
+					uiIns				= vInfo.uiIns;
+					UIBase[] newUIList	= uiIns.GetComponents<UIBase>();
 
 					foreach (UIBase newUI in newUIList)
 					{
 						newUI.SortIdx = loadingInfo.sortIdx;
 					}
 				}
+
+				StartCoroutine(UIVisibleSetting(uiIns, loadingInfo.bVisible));
 			}
 
-			if(bNeedToDestroyOtherUI)
+			/********************************
+			 * 判斷是否有UI需要移除
+			 * *****************************/
+			if (bNeedToDestroyOtherUI)
 			{
 				for (int i = 0; i < currVisibleList.Count; ++i)
 				{
@@ -173,6 +188,9 @@ namespace XPlan.UI
 				}
 			}
 
+			/********************************
+			 * 將剩下的UI依照順序排列
+			 * *****************************/
 			List<UIVisibleInfo> sortUIList = new List<UIVisibleInfo>();
 			sortUIList.AddRange(currVisibleList);
 			sortUIList.AddRange(persistentUIList);
@@ -192,7 +210,22 @@ namespace XPlan.UI
 				visibleInfo.uiIns.transform.SetSiblingIndex(i);
 			}
 
-			loaderStack.Add(loader);
+			loaderStack.Add(loader);			
+		}
+
+		private IEnumerator UIVisibleSetting(GameObject uiIns, bool bVisible)
+		{
+			yield return new WaitForEndOfFrame();
+			
+			/********************************
+			* 設定UI Visible
+			* *****************************/			
+			
+			if (uiIns != null)
+			{
+				uiIns.SetActive(bVisible);
+				uiIns.transform.localScale = Vector3.one;
+			}
 		}
 
 		public void UnloadingUI(UILoader loader)
@@ -212,7 +245,7 @@ namespace XPlan.UI
 
 				int idx = currVisibleList.FindIndex((X) =>
 				{
-					return X.uiName == uiGO.name;
+					return X.uiName == uiGO.name && X.rootIdx == loadingInfo.rootIdx;
 				});
 
 				if (idx != -1)				
@@ -325,6 +358,14 @@ namespace XPlan.UI
 			{
 				X.SetActive(bEnable);
 			});
+		}
+
+		/**************************************
+		 * String Table
+		 * ************************************/
+		public string GetStr(string keyStr, bool bShowWarning = false)
+		{
+			return stringTable.GetStr(keyStr, bShowWarning);
 		}
 	}
 }

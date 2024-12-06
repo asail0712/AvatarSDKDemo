@@ -7,11 +7,10 @@ using UnityEngine.Networking;
 using Newtonsoft.Json;
 
 using XPlan;
-using XPlan.Extensions;
 using XPlan.Observe;
 using XPlan.Utility;
 
-namespace Granden.AvatarSDK
+namespace XPlanUtility.AvatarSDK
 {
     public class PhotoImageMsg : MessageBase
     {
@@ -25,7 +24,7 @@ namespace Granden.AvatarSDK
         }
     }
 
-    public class BeautyPicHandler : LogicComponentBase
+    public class BeautyPicHandler : LogicComponent
     {
         private string meituApiKey      = "";
         private string meituSecretID    = "";

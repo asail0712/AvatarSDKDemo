@@ -5,7 +5,7 @@ using UnityEngine.UI;
 
 using XPlan.UI;
 
-namespace Granden.Demo
+namespace XPlanUtility.AvatarSDK
 {
     public class BackToPhotoUI : UIBase
     {

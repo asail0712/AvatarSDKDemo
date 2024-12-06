@@ -1,13 +1,20 @@
 ﻿using System;
 using System.Collections;
 using System.Collections.Generic;
+using System.Linq;
 using UnityEngine;
 using UnityEngine.UI;
 
 using XPlan.Utility;
 
-namespace XPlan.UI.Template
+namespace XPlan.UI
 {
+	public enum DialogResult
+	{
+		Confirm = 0,
+		Cancal,
+	}
+
 	public static class DialogMessage
 	{
 		public const string Confirm			= "key_confirm";
@@ -24,29 +31,25 @@ namespace XPlan.UI.Template
 	public class ShowDialogue
 	{
 		public DialogType dialogType	= DialogType.SingleButton;
-		public string showStr			= "";
+		public List<string> showStrList	= null;
 		public string confirmStr		= "";
 		public string cancelStr			= "";
-		public Action<int> clickAction	= null;
+		public Action<DialogResult> clickAction	= null;
 
-		public ShowDialogue(DialogType dialogType, string showStr, Action<int> clickAction = null, string confirmKey = "", string cancelKey = "")
+		public ShowDialogue(DialogType dialogType, string showStr, Action<DialogResult> clickAction = null, string confirmKey = "", string cancelKey = "")
 		{
-			Initial(dialogType, showStr, clickAction, confirmKey, cancelKey);
-		}
-		
-		public ShowDialogue(DialogType dialogType, string[] showStrList, Action<int> clickAction = null, string confirmKey = "", string cancelKey = "")
-		{			
-			string showStr = "";
+			List<string> tmp = new List<string>();
+			tmp.Add(showStr);
 
-			for (int i = 0; i < showStrList.Length; ++i)
-			{
-				showStr += StringTable.Instance.GetStr(showStrList[i]);
-			}
-
-			Initial(dialogType, showStr, clickAction, confirmKey, cancelKey);
+			Initial(dialogType, tmp, clickAction, confirmKey, cancelKey);
 		}
 
-		private void Initial(DialogType dialogType, string showStr, Action<int> clickAction, string confirmKey = "", string cancelKey = "")
+		public ShowDialogue(DialogType dialogType, string[] showStrList, Action<DialogResult> clickAction = null, string confirmKey = "", string cancelKey = "")
+		{
+			Initial(dialogType, showStrList.ToList(), clickAction, confirmKey, cancelKey);
+		}
+
+		private void Initial(DialogType dialogType, List<string> showStrList, Action<DialogResult> clickAction, string confirmKey = "", string cancelKey = "")
 		{
 			if (confirmKey == "")
 			{
@@ -60,9 +63,9 @@ namespace XPlan.UI.Template
 
 
 			this.dialogType		= dialogType;
-			this.showStr		= StringTable.Instance.GetStr(showStr);
-			this.confirmStr		= StringTable.Instance.GetStr(confirmKey);
-			this.cancelStr		= StringTable.Instance.GetStr(cancelKey);
+			this.showStrList	= showStrList;
+			this.confirmStr		= confirmKey;
+			this.cancelStr		= cancelKey;
 			this.clickAction	= clickAction;
 
 			UISystem.DirectCall<ShowDialogue>(DialogMessage.ConfirmMessage, this);
@@ -73,37 +76,41 @@ namespace XPlan.UI.Template
     {
 		[SerializeField] public Button confirmBtn;
 		[SerializeField] public Button cancelBtn;
-		[SerializeField] public GameObject uiRoot;
 		[SerializeField] public Text showStrTxt;
 		[SerializeField] public Text confirmTxt;
 		[SerializeField] public Text cancelTxt;
 
-		private Action<int> clickAction;
+		private Action<DialogResult> clickAction;
 
 		private void Awake()
 		{
 			RegisterButton("", confirmBtn, () =>
 			{
-				clickAction?.Invoke(0);
-				uiRoot.SetActive(false);
+				clickAction?.Invoke(DialogResult.Confirm);
+				gameObject.SetActive(false);
 			});
 
 			RegisterButton("", cancelBtn, () =>
 			{
-				clickAction?.Invoke(1);
-				uiRoot.SetActive(false);
+				clickAction?.Invoke(DialogResult.Cancal);
+				gameObject.SetActive(false);
 			});
 
 			ListenCall<ShowDialogue>(DialogMessage.ConfirmMessage, (info)=> 
 			{
-				showStrTxt.text = info.showStr;
-				confirmTxt.text = info.confirmStr;
-				cancelTxt.text	= info.cancelStr;
+				string titleStr = "";
+
+				for(int i = 0; i < info.showStrList.Count; ++i)
+				{
+					titleStr += GetStr(info.showStrList[i]);
+				}
+
+				showStrTxt.text = titleStr;
+				confirmTxt.text = GetStr(info.confirmStr);
+				cancelTxt.text	= GetStr(info.cancelStr);
 				clickAction		= info.clickAction;
 
 				cancelBtn.gameObject.SetActive(info.dialogType == DialogType.DualButton);
-
-				uiRoot.SetActive(true);
 			});
 		}
 	}

@@ -6,8 +6,6 @@ using System.IO;
 using UnityEngine;
 using UnityEngine.SceneManagement;
 
-using XPlan.DebugMode;
-using XPlan.Extensions;
 using XPlan.Utility;
 
 namespace XPlan.Scenes
@@ -24,49 +22,42 @@ namespace XPlan.Scenes
 
 	public struct SceneInfo
 	{
-		public int sceneType;
+		public int sceneIdx;
 		public int level;
-		public List<Action> triggerToFadeOutList;
-		public List<Func<bool>> isFadeOutFinishList;
 
 		public SceneInfo(int s, int l)
 		{
-			sceneType				= s;
-			level					= l;
-			triggerToFadeOutList	= new List<Action>();
-			isFadeOutFinishList		= new List<Func<bool>>();
+			sceneIdx	= s;
+			level		= l;
 		}
 	}
 
 	public class ChangeInfo
 	{
-		public int sceneType;
+		public int sceneIdx;
 
-		public ChangeInfo(int sceneType)
+		public ChangeInfo(int sceneIdx)
 		{
-			this.sceneType = sceneType;
+			this.sceneIdx = sceneIdx;
 		}
 	}
 
 	public class LoadInfo : ChangeInfo
 	{
-		public LoadInfo(int sceneType)
-			: base(sceneType)
+		public bool bActiveScene;
+		public Action finishAction;
+
+		public LoadInfo(int sceneIdx, bool bActiveScene, Action finishAction)
+			: base(sceneIdx)
 		{
+			this.bActiveScene = bActiveScene;
+			this.finishAction = finishAction;
 		}
 	}
 
 	public class UnloadInfo : ChangeInfo
 	{
-		public UnloadInfo(int sceneType)
-			: base(sceneType)
-		{
-		}
-	}
-
-	public class UnloadInfoImmediately : ChangeInfo
-	{
-		public UnloadInfoImmediately(int sceneIdx)
+		public UnloadInfo(int sceneIdx)
 			: base(sceneIdx)
 		{
 		}
@@ -82,8 +73,9 @@ namespace XPlan.Scenes
 
 		private List<ChangeInfo> changeQueue			= new List<ChangeInfo>();
 
-		private Coroutine unloadRoutine					= null;
 		private Coroutine loadRoutine					= null;
+		private Coroutine unloadRoutine					= null;
+		private int loadingSceneIdx						= -1;
 
 		/************************************
 		* 初始化
@@ -164,50 +156,80 @@ namespace XPlan.Scenes
 			return true;
 		}
 
-		public bool ChangeTo(string sceneName, bool bForceChange = false)
+		public bool ChangeTo(string sceneName, Action finishAction = null, bool bActiveScene = true)
 		{
 			int buildIndex = GetBuildIndexByName(sceneName);
 
-			return ChangeTo(buildIndex, bForceChange);
+			return ChangeTo(buildIndex, finishAction, bActiveScene);
 		}
 
-		public bool ChangeTo(int sceneType, bool bForceChange = false)
+		private void AddStack(int sceneIdx)
+		{
+			int scenelevel = GetLevel(sceneIdx);
+
+			while(currSceneStack.Count < scenelevel)
+			{
+				currSceneStack.Add(-1);
+			}
+
+			currSceneStack.Add(sceneIdx);
+		}
+
+		private void RemoveStack(int sceneIdx)
+		{			
+			while (currSceneStack.Contains(sceneIdx))
+			{
+				currSceneStack.RemoveAt(currSceneStack.Count - 1);
+			}
+		}
+
+		public bool ChangeTo(int buildIndex, Action finishAction = null, bool bActiveScene = true)
 		{
 			if (currSceneStack.Count == 0)
 			{
-				LoadScene(sceneType, true);
+				// 立刻加載
+				AsyncOperation loadOperation	= SceneManager.LoadSceneAsync(buildIndex, LoadSceneMode.Additive);
+				loadRoutine						= StartCoroutine(WaitLoadingScene(loadOperation, buildIndex, bActiveScene, finishAction));
+
+				AddStack(buildIndex);
 				return true;
 			}
 
 			for (int i = currSceneStack.Count - 1; i >= 0; --i)
 			{
-				int currSceneType	= currSceneStack[i];
-				int currScenelevel	= GetLevel(currSceneType);
-				int newScenelevel	= GetLevel(sceneType);
+				int currSceneIndex	= currSceneStack[i];
+				int currScenelevel	= GetLevel(currSceneIndex);
+				int newScenelevel	= GetLevel(buildIndex);
 
 				if (currScenelevel > newScenelevel)
 				{
 					// 考慮到SceneLevel的差距，所以強制關閉，不用等回調
-					UnloadScene(currSceneType, bForceChange);
+					AddQueueUnload(currSceneIndex);
 
+					RemoveStack(buildIndex);
 				}
 				else if (currScenelevel == newScenelevel)
 				{
-					if (sceneType == currSceneType)
+					if (buildIndex == currSceneIndex)
 					{
 						return true;
 					}
 					else 
 					{
 						// 先loading 再做unload 避免畫面太空
-						LoadScene(sceneType);
-						UnloadScene(currSceneType, bForceChange);
+						AddQueueLoad(buildIndex, finishAction, bActiveScene);
+						AddQueueUnload(currSceneIndex);
+
+						currSceneStack[currScenelevel] = buildIndex;
+
 						break;
 					}
 				}
 				else
 				{
-					LoadScene(sceneType);
+					AddQueueLoad(buildIndex, finishAction, bActiveScene);
+
+					AddStack(buildIndex);
 					break;
 				}
 			}
@@ -226,7 +248,7 @@ namespace XPlan.Scenes
 
 		public void ChangeSceneProcess(float deltaTime)
 		{
-			if(changeQueue.Count == 0 || unloadRoutine != null || loadRoutine != null)
+			if(changeQueue.Count == 0 || loadRoutine != null || unloadRoutine != null)
 			{
 				return;
 			}
@@ -235,25 +257,27 @@ namespace XPlan.Scenes
 
 			if(info is LoadInfo)
 			{
-				Debug.Log($"載入關卡 {info.sceneType}");
-				AsyncOperation loadOperation	= SceneManager.LoadSceneAsync(info.sceneType, LoadSceneMode.Additive);
-				loadRoutine						= StartCoroutine(WaitLoadingScene(loadOperation, info.sceneType));
+				LoadInfo loadInfo	= (LoadInfo)info;
+				Scene loadScene		= SceneManager.GetSceneByBuildIndex(loadInfo.sceneIdx);
 
-				currSceneStack.Add(info.sceneType);
+				if (!loadScene.isLoaded)
+				{
+					Debug.Log($"載入關卡 {info.sceneIdx}");
+					AsyncOperation loadOperation	= SceneManager.LoadSceneAsync(loadInfo.sceneIdx, LoadSceneMode.Additive);
+					loadRoutine						= StartCoroutine(WaitLoadingScene(loadOperation, loadInfo.sceneIdx, loadInfo.bActiveScene, loadInfo.finishAction));
+				}
 			}
 			else if(info is UnloadInfo)
 			{
-				Debug.Log($"卸載關卡 {info.sceneType}");
-				unloadRoutine = StartCoroutine(WaitAllFadeOut(UnloadScene_Internal, info.sceneType, false));
+				UnloadInfo unloadInfo	= (UnloadInfo)info;
+				Scene unloadScene		= SceneManager.GetSceneByBuildIndex(unloadInfo.sceneIdx);
 
-				currSceneStack.Remove(info.sceneType);
-			}
-			else if (info is UnloadInfoImmediately)
-			{
-				Debug.Log($"立刻卸載關卡 {info.sceneType}");
-				unloadRoutine = StartCoroutine(WaitAllFadeOut(UnloadScene_Internal, info.sceneType, true));
-
-				currSceneStack.Remove(info.sceneType);
+				if (unloadScene.isLoaded)
+				{
+					Debug.Log($"卸載關卡 {unloadInfo.sceneIdx}");
+					AsyncOperation loadOperation	= SceneManager.UnloadSceneAsync(unloadInfo.sceneIdx);
+					unloadRoutine					= StartCoroutine(WaitUnloadingScene(loadOperation));
+				}
 			}
 			else
 			{
@@ -264,139 +288,38 @@ namespace XPlan.Scenes
 			changeQueue.RemoveAt(0);
 		}
 
-		protected bool LoadScene(int sceneType, bool bImmediately = false)
+		protected void AddQueueLoad(int sceneIdx, Action finishAction, bool bActiveScene)
 		{
-			Scene scene = SceneManager.GetSceneByBuildIndex(sceneType);
-
-			// 檢查沒有被載入
-			if (scene.isLoaded)
-			{
-				return false;
-			}
-
-			if(bImmediately)
-			{
-				Debug.Log($"載入關卡 {sceneType}");
-				AsyncOperation loadOperation	= SceneManager.LoadSceneAsync(sceneType, LoadSceneMode.Additive);
-				loadRoutine						= StartCoroutine(WaitLoadingScene(loadOperation, sceneType));
-
-				currSceneStack.Add(sceneType);
-			}
-			else
-			{
-				changeQueue.Add(new LoadInfo(sceneType));
-			}
-			
-			return true;
+			Debug.Log($"oo加入載入佇列oo {sceneIdx}");
+			changeQueue.Add(new LoadInfo(sceneIdx, bActiveScene, finishAction));
 		}
 
-		protected bool UnloadScene(int sceneType, bool bImmediately = false)
+		protected void AddQueueUnload(int sceneIdx)
 		{
-			if(bImmediately)
-			{
-				changeQueue.Add(new UnloadInfoImmediately(sceneType));
-			}
-			else
-			{
-				changeQueue.Add(new UnloadInfo(sceneType));
-			}
-			
-			return true;
+			Debug.Log($"xx加入卸載佇列xx {sceneIdx}");
+			changeQueue.Add(new UnloadInfo(sceneIdx));
 		}
 
-		protected void UnloadScene_Internal(int sceneIdx)
-		{ 
-			Scene scene = SceneManager.GetSceneByBuildIndex(sceneIdx);
-
-			if (!scene.isLoaded)
-			{
-				return;
-			}
-
-			SceneManager.UnloadSceneAsync(sceneIdx);			
-		}
-
-		/************************************
-		* UI Fade in/out流程處理
-		* **********************************/
-		static public void RegisterFadeCallback(int sceneType, Action FadeOutFunc, Func<bool> retFunc)
+		private IEnumerator WaitLoadingScene(AsyncOperation asyncOperation, int sceneIdx, bool bActiveScene, Action finishAction)
 		{
-			int idx = sceneInfoList.FindIndex((X) =>
-			{
-				return X.sceneType == sceneType;
-			});
+			loadingSceneIdx = sceneIdx;
 
-			if(idx != -1)
+			yield return new WaitUntil(() => asyncOperation.isDone);
+
+			if(bActiveScene)
 			{
-				sceneInfoList[idx].triggerToFadeOutList.Add(FadeOutFunc);
-				sceneInfoList[idx].isFadeOutFinishList.Add(retFunc);
+				Scene scene = SceneManager.GetSceneByBuildIndex(sceneIdx);
+				SceneManager.SetActiveScene(scene);
 			}
-		}
 
-		static public void UnregisterFadeCallback(int sceneType, Action func, Func<bool> retFunc)
-		{
-			int idx = sceneInfoList.FindIndex((X) =>
-			{
-				return X.sceneType == sceneType;
-			});
-
-			if (idx != -1)
-			{
-				sceneInfoList[idx].triggerToFadeOutList.Remove(func);
-				sceneInfoList[idx].isFadeOutFinishList.Remove(retFunc);
-			}
-		}
-
-		private IEnumerator WaitLoadingScene(AsyncOperation asyncOperation, int sceneType)
-		{
-			while (!asyncOperation.isDone)
-			{
-				float progress = Mathf.Clamp01(asyncOperation.progress / 0.9f); // 0.9 是載入完成的標誌
-				Debug.Log("關卡載入進度: " + (progress * 100) + "%");
-				yield return null;
-			}
+			finishAction?.Invoke();
 
 			loadRoutine = null;
 		}
 
-		private IEnumerator WaitAllFadeOut(Action<int> ReallyUnload, int sceneType, bool bImmediately)
+		private IEnumerator WaitUnloadingScene(AsyncOperation asyncOperation)
 		{
-			if (!bImmediately)
-			{
-				List<Func<bool>> isFadeOutCallback		= GetIsFadeOutCallback(sceneType);
-				List<Action> triggerToFadeOutCallback	= GetTriggerToFadeOutCallback(sceneType);
-
-				int numOfCallbacks = triggerToFadeOutCallback == null ? 0 : triggerToFadeOutCallback.Count;
-				int numOfCompleted = 0;
-
-				foreach (Action callback in triggerToFadeOutCallback)
-				{
-					callback?.Invoke();
-				}
-
-				while (numOfCompleted < numOfCallbacks)
-				{
-					numOfCompleted = 0;
-
-					foreach (Func<bool> UnloadResult in isFadeOutCallback)
-					{
-						// 判斷fade out 表演是否結束
-
-						if (UnloadResult == null)
-						{
-							++numOfCompleted;
-						}
-						else if (UnloadResult.Invoke())
-						{
-							++numOfCompleted;
-						}
-					}
-
-					yield return null;
-				}
-			}
-
-			ReallyUnload(sceneType);
+			yield return new WaitUntil(() => asyncOperation.isDone);
 
 			unloadRoutine = null;
 		}
@@ -404,16 +327,16 @@ namespace XPlan.Scenes
 		/************************************
 		* Scene添加
 		* **********************************/
-		public void RegisterScene(int sceneType, int level)
+		public void RegisterScene(int sceneIdx, int level)
 		{
 			List<SceneInfo> sceneList = sceneInfoList.FindAll((X)=> 
 			{
-				return X.sceneType == sceneType;
+				return X.sceneIdx == sceneIdx;
 			});
 
 			if(sceneList.Count == 0)
 			{
-				sceneInfoList.Add(new SceneInfo(sceneType, level));
+				sceneInfoList.Add(new SceneInfo(sceneIdx, level));
 			}			
 		}
 
@@ -424,21 +347,21 @@ namespace XPlan.Scenes
 			RegisterScene(buildIndex, level);
 		}
 
-		public void  UnregisterScene(int sceneType)
+		public void  UnregisterScene(int sceneIdx)
 		{
 			sceneInfoList.RemoveAll((X) =>
 			{
-				return X.sceneType == sceneType;
+				return X.sceneIdx == sceneIdx;
 			});
 		}
 
 		/************************************
 		* 其他
 		* **********************************/
-		public bool IsInScene<T>(T sceneType) where T : struct, IConvertible
+		public bool IsInScene<T>(T sceneIdx) where T : struct, IConvertible
 		{
 			// 將型態轉換成整數會是多少
-			int sceneInt = sceneType.ToInt32(CultureInfo.InvariantCulture);
+			int sceneInt = sceneIdx.ToInt32(CultureInfo.InvariantCulture);
 
 			if (sceneInt >= 0)
 			{
@@ -448,12 +371,11 @@ namespace XPlan.Scenes
 			return false;
 		}
 
-		
-		private int GetLevel(int sceneType)
+		private int GetLevel(int sceneIdx)
 		{
 			int idx = sceneInfoList.FindIndex((X)=> 
 			{
-				return X.sceneType == sceneType;
+				return X.sceneIdx == sceneIdx;
 			});
 
 			if(idx == -1)
@@ -462,36 +384,6 @@ namespace XPlan.Scenes
 			}
 
 			return sceneInfoList[idx].level;
-		}
-
-		private List<Action> GetTriggerToFadeOutCallback(int sceneType)
-		{
-			int idx = sceneInfoList.FindIndex((X) =>
-			{
-				return X.sceneType == sceneType;
-			});
-
-			if (idx == -1)
-			{
-				return null;
-			}
-
-			return sceneInfoList[idx].triggerToFadeOutList;
-		}
-
-		private List<Func<bool>> GetIsFadeOutCallback(int sceneType)
-		{
-			int idx = sceneInfoList.FindIndex((X) =>
-			{
-				return X.sceneType == sceneType;
-			});
-
-			if (idx == -1)
-			{
-				return null;
-			}
-
-			return sceneInfoList[idx].isFadeOutFinishList;
 		}
 
 		public int GetCurrSceneIdx()
@@ -507,6 +399,23 @@ namespace XPlan.Scenes
 				Debug.LogWarning("Level Error");
 				return -1;
 			}			
+		}
+
+		public string GetCurrSceneName()
+		{
+			int currSceneIdx = currSceneStack.Count - 1;
+
+			if (currSceneStack.IsValidIndex<int>(currSceneIdx))
+			{
+				Scene currScene = SceneManager.GetSceneByBuildIndex(currSceneStack[currSceneIdx]);
+
+				return currScene.name;
+			}
+			else
+			{
+				Debug.LogWarning("Level Error");
+				return "";
+			}
 		}
 
 		private int GetBuildIndexByName(string sceneName)

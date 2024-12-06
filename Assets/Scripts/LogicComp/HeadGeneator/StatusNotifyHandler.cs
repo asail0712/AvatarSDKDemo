@@ -8,7 +8,7 @@ using XPlan;
 using XPlan.Observe;
 using XPlan.Utility;
 
-namespace Granden.AvatarSDK
+namespace XPlanUtility.AvatarSDK
 {
     public enum ErrorLevel
 	{
@@ -38,7 +38,7 @@ namespace Granden.AvatarSDK
         }
     }
 
-    public class StatusNotifyHandler : LogicComponentBase, IErrorNotify, IProgressNotify
+    public class StatusNotifyHandler : LogicComponent, IErrorNotify, IProgressNotify
     {
         private Action<float> progressAction;
         private Action<string> errorAction;

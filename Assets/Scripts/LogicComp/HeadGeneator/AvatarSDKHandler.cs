@@ -8,13 +8,12 @@ using UnityEngine;
 using ItSeez3D.AvatarSdk.Core;
 
 using XPlan;
-using XPlan.Extensions;
 using XPlan.Interface;
 using XPlan.Net;
 using XPlan.Observe;
 using XPlan.Utility;
 
-namespace Granden.AvatarSDK
+namespace XPlanUtility.AvatarSDK
 {
     public class GenerateHeadMsg : MessageBase
     {
@@ -36,7 +35,7 @@ namespace Granden.AvatarSDK
         public bool bSkinRecolor    = true;
     }
 
-    public class AvatarSDKHandler : LogicComponentBase
+    public class AvatarSDKHandler : LogicComponent
     {
         private const string HEAD_OBJECT_NAME       = "ItSeez3D Head";
         private const string HAIRCUT_OBJECT_NAME    = "ItSeez3D Haircut";

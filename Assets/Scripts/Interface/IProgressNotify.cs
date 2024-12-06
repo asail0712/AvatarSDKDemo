@@ -3,7 +3,7 @@ using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 
-namespace Granden.AvatarSDK
+namespace XPlanUtility.AvatarSDK
 {
     public interface IProgressNotify
     {

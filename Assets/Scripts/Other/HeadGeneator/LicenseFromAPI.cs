@@ -9,7 +9,7 @@ using ItSeez3D.AvatarSdk.Core;
 using XPlan.Utility;
 using XPlan.Net;
 
-namespace Granden.AvatarSDK
+namespace XPlanUtility.AvatarSDK
 {
     public class LicenseFromAPI : ILicenseGetter
     {
