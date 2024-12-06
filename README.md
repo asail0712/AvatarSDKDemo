@@ -5,6 +5,7 @@
 ### 系統要求
 - Unity 2022.3.33f1 或更高版本
 - Avatar SDK Local Compute Version 2.2.2。
+- XPlan 2.0.2
 ### 安裝指南
 使用Unity開啟這個項目。
 需要配備攝影機。
