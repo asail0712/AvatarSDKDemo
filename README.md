@@ -3,11 +3,12 @@
  
 # 2.安裝指南
 ### 系統要求
-- Unity 2021.3.6f1 或更高版本。
+- Unity 2022.3.33f1 或更高版本
 - Avatar SDK Local Compute Version 2.2.2。
 ### 安裝指南
-打開Unity並打開這個項目。
+使用Unity開啟這個項目。
 需要配備攝影機。
+Avatar SDK與Meitu的 License需要另外申請
   
 # 3.使用說明
 ### Assets/Scenes/AvatarSDKDemoScene.unity
